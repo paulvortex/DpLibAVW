@@ -1,7 +1,6 @@
 Darkplaces LibAv Wrapper
-Released under GPL
 ----
 
-This little lib is created to provide ability to dynamically link libav to Darkplaces with no care of ABI.
+This little lib is created to provide ability to dynamically link libav to Darkplaces engine with no care of ABI.
 
 Each libavw build is aimed to certain LibAv revision and should be supplied with DLL's from it (so it going to be 5 libs - libavw, libavcodec, libavformat, libavutil, swscale).
