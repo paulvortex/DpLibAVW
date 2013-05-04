@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Dp LibAv Wrapper (fd0b8d5)", "fd0b8d5.vcproj", "{B9FD5910-1B3E-48CE-99A2-9D8A58A7BA12}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Debug|x64 = Debug|x64
+		Release|Win32 = Release|Win32
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B9FD5910-1B3E-48CE-99A2-9D8A58A7BA12}.Debug|Win32.ActiveCfg = Debug|Win32
+		{B9FD5910-1B3E-48CE-99A2-9D8A58A7BA12}.Debug|Win32.Build.0 = Debug|Win32
+		{B9FD5910-1B3E-48CE-99A2-9D8A58A7BA12}.Debug|x64.ActiveCfg = Debug|x64
+		{B9FD5910-1B3E-48CE-99A2-9D8A58A7BA12}.Debug|x64.Build.0 = Debug|x64
+		{B9FD5910-1B3E-48CE-99A2-9D8A58A7BA12}.Release|Win32.ActiveCfg = Release|Win32
+		{B9FD5910-1B3E-48CE-99A2-9D8A58A7BA12}.Release|Win32.Build.0 = Release|Win32
+		{B9FD5910-1B3E-48CE-99A2-9D8A58A7BA12}.Release|x64.ActiveCfg = Release|x64
+		{B9FD5910-1B3E-48CE-99A2-9D8A58A7BA12}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

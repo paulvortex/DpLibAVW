@@ -59,6 +59,7 @@ typedef struct avwstream_s
 
 	// libavcodec reading context
 	AVFormatContext *AV_FormatContext;
+	AVIOContext     *AV_InputContext;
     int              AV_VideoStreamId;
 	int              AV_AudioStreamId;
     AVCodecContext  *AV_CodecContext;
@@ -114,6 +115,7 @@ int libav_scalers[LIBAVCODEC_SCALERS] =
 #define LIBAVW_ERROR_BAD_SCALER            20
 #define LIBAVW_ERROR_CREATE_SCALE_CONTEXT  21
 #define LIBAVW_ERROR_APPLYING_SCALE        22
+#define LIBAVW_ERROR_TEST                  23
 
 /*
 =================================================================
@@ -147,9 +149,18 @@ void LibAvW_ResetStream(avwstream_t *stream)
 	if (stream->AV_CodecContext)
 		avcodec_close(stream->AV_CodecContext);
 	stream->AV_CodecContext = NULL;
+	// AV_InputContext
+	if (stream->AV_InputContext)
+	{
+		av_free(stream->AV_InputContext);
+		stream->AV_InputContext = NULL;
+		if (stream->AV_FormatContext)
+			stream->AV_FormatContext->pb = NULL;
+	}
 	// AV_FormatContext
 	if (stream->AV_FormatContext)
 		av_close_input_file(stream->AV_FormatContext);
+	stream->AV_InputContext = NULL;
 	stream->AV_FormatContext = NULL;
 	// IO
 	stream->file = NULL;
@@ -319,9 +330,9 @@ DLL_EXPORT int LibAvW_PlayGetFrameImage(void *stream, int pixel_format, void *im
 int LibAvW_FS_Read(void *opaque, uint8_t *buf, int buf_size)
 {
 	avwstream_t *s = (avwstream_t *)opaque;
-
 	return s->IO_Read(s->file, buf, buf_size);
 }
+
 int64_t LibAvW_FS_Seek(void *opaque, int64_t pos, int whence)
 {
 	avwstream_t *s = (avwstream_t *)opaque;
@@ -368,8 +379,8 @@ DLL_EXPORT int LibAvW_PlayVideo(void *stream, void *file, avwCallbackIoRead *IoR
 	}
 
 	// allocate input context
-	#define AV_IOBUFSIZE 1024*64
-	inputbuf = (unsigned char *)malloc(AV_IOBUFSIZE + FF_INPUT_BUFFER_PADDING_SIZE);
+	#define AV_IOBUFSIZE 4096*16
+	inputbuf = (unsigned char *)av_malloc(AV_IOBUFSIZE + FF_INPUT_BUFFER_PADDING_SIZE);
 	memset(inputbuf, 0, AV_IOBUFSIZE + FF_INPUT_BUFFER_PADDING_SIZE);
 	if (!inputbuf)
 	{
@@ -378,7 +389,8 @@ DLL_EXPORT int LibAvW_PlayVideo(void *stream, void *file, avwCallbackIoRead *IoR
 		return 0;
 	}
 	s->AV_FormatContext = avformat_alloc_context();
-	s->AV_FormatContext->pb = avio_alloc_context(inputbuf, AV_IOBUFSIZE, 0, s, LibAvW_FS_Read, NULL, LibAvW_FS_Seek);
+	s->AV_InputContext = avio_alloc_context(inputbuf, AV_IOBUFSIZE, 0, s, LibAvW_FS_Read, NULL, LibAvW_FS_Seek);
+	s->AV_FormatContext->pb = s->AV_InputContext;
 
 	// open input
     if (avformat_open_input(&s->AV_FormatContext, "tmp", NULL, NULL) != 0)
@@ -389,7 +401,11 @@ DLL_EXPORT int LibAvW_PlayVideo(void *stream, void *file, avwCallbackIoRead *IoR
 	}
 
     // get stream information
-    if (av_find_stream_info(s->AV_FormatContext) < 0)
+#ifdef LIBAV95
+	if (avformat_find_stream_info(s->AV_FormatContext, NULL) < 0)
+#else
+	 if (av_find_stream_info(s->AV_FormatContext) < 0)
+#endif
 	{
 		LibAvW_ResetStream(s);
 		s->lasterror = LIBAVW_ERROR_FIND_STREAM_INFO;
@@ -430,7 +446,11 @@ DLL_EXPORT int LibAvW_PlayVideo(void *stream, void *file, avwCallbackIoRead *IoR
     // bitstreams where AV_InputFrame boundaries can fall in the middle of packets
     if (s->AV_Codec->capabilities & CODEC_CAP_TRUNCATED)
         s->AV_CodecContext->flags |= CODEC_FLAG_TRUNCATED;
-    if (avcodec_open(s->AV_CodecContext, s->AV_Codec) < 0)
+#ifdef LIBAV95
+	if (avcodec_open2(s->AV_CodecContext, s->AV_Codec, NULL) < 0)
+#else
+	if (avcodec_open(s->AV_CodecContext, s->AV_Codec) < 0)
+#endif
     {
 		LibAvW_ResetStream(s);
 		s->lasterror = LIBAVW_ERROR_OPEN_CODEC;
@@ -542,7 +562,11 @@ void LibAvW_ErrorCallback(void* ptr, int level, const char* fmt, va_list vl)
 		return;
 	if (level > AV_LOG_WARNING)
 		return;
-    av_log_format_line(ptr, level, fmt, vl, line, sizeof(line), &print_prefix);
+#ifdef LIBAV95
+	vsprintf_s(line, sizeof(line), fmt, vl);
+#else
+	av_log_format_line(ptr, level, fmt, vl, line, sizeof(line), &print_prefix);
+#endif
     sanitize(line);
 	if (level == AV_LOG_WARNING)
 		libav_print(LIBAVW_PRINT_WARNING, line);
@@ -580,6 +604,7 @@ DLL_EXPORT const char *LibAvW_ErrorString(int errorcode)
 	if (errorcode == LIBAVW_ERROR_BAD_SCALER)           return "bad scaler";
 	if (errorcode == LIBAVW_ERROR_CREATE_SCALE_CONTEXT) return "unable to create scale context";
 	if (errorcode == LIBAVW_ERROR_APPLYING_SCALE)       return "unable to apply scale";
+	if (errorcode == LIBAVW_ERROR_TEST)                 return "debug break";
 	return "unknown error code";
 }
 
