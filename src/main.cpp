@@ -66,7 +66,6 @@ typedef struct avwstream_s
     AVCodec         *AV_Codec;
 	AVFrame         *AV_InputFrame;
 	AVFrame         *AV_OutputFrame;
-	AVPacket         AV_Packet;
 
 	// I/O
 	void              *file;
@@ -237,6 +236,7 @@ DLL_EXPORT int LibAvW_PlaySeekNextFrame(void *stream)
 {
 	avwstream_t *s;
 	int frame_finished = 0;
+	AVPacket pkt;
 
 	// check
 	if (!libav_initialized)
@@ -246,25 +246,30 @@ DLL_EXPORT int LibAvW_PlaySeekNextFrame(void *stream)
 		return 0;
 
 	// read AV_InputFrame
-	while(av_read_frame(s->AV_FormatContext, &s->AV_Packet) >= 0)
+	av_init_packet(&pkt);
+	while(av_read_frame(s->AV_FormatContext, &pkt) >= 0)
 	{
-		// is this a AV_Packet from video stream
-		if (s->AV_Packet.stream_index != s->AV_VideoStreamId)
-			continue;
-		// decode into AV_InputFrame
-		if (avcodec_decode_video2(s->AV_CodecContext, s->AV_InputFrame, &frame_finished, &s->AV_Packet) < 0)
+		// is this a packet from video stream
+		if (pkt.stream_index == s->AV_VideoStreamId)
 		{
-			s->lasterror = LIBAVW_ERROR_DECODING_VIDEO_FRAME;
-			return 0;
-		}
-		if (frame_finished)
-		{
-			// finished decoding a AV_InputFrame
-			s->framenum++;
-			s->lasterror = LIBAVW_ERROR_NONE;
-			return 1;
+			// decode into AV_InputFrame
+			if (avcodec_decode_video2(s->AV_CodecContext, s->AV_InputFrame, &frame_finished, &pkt) < 0)
+			{
+				s->lasterror = LIBAVW_ERROR_DECODING_VIDEO_FRAME;
+				av_free_packet(&pkt);
+				return 0;
+			}
+			if (frame_finished)
+			{
+				// finished decoding a AV_InputFrame
+				s->framenum++;
+				s->lasterror = LIBAVW_ERROR_NONE;
+				av_free_packet(&pkt);
+				return 1;
+			}
 		}
 	}
+	av_free_packet(&pkt);
 
 	// reached end of stream
 	s->lasterror = LIBAVW_ERROR_NONE;
@@ -445,7 +450,7 @@ DLL_EXPORT int LibAvW_PlayVideo(void *stream, void *file, avwCallbackIoRead *IoR
     // inform the AV_Codec that we can handle truncated bitstreams -- i.e.,
     // bitstreams where AV_InputFrame boundaries can fall in the middle of packets
     if (s->AV_Codec->capabilities & CODEC_CAP_TRUNCATED)
-        s->AV_CodecContext->flags |= CODEC_FLAG_TRUNCATED;
+		s->AV_CodecContext->flags |= CODEC_FLAG_TRUNCATED;
 #ifdef LIBAV95
 	if (avcodec_open2(s->AV_CodecContext, s->AV_Codec, NULL) < 0)
 #else
@@ -477,20 +482,20 @@ DLL_EXPORT int LibAvW_PlayVideo(void *stream, void *file, avwCallbackIoRead *IoR
         return 0;
 	}
 
-	// allocate and clear AV_Packet
-	av_init_packet(&s->AV_Packet);
-	s->AV_Packet.data = NULL;
-
 	// all right, start AV_Codec
 	s->framenum = 0;
 	s->framewidth = s->AV_CodecContext->width;
 	s->frameheight = s->AV_CodecContext->height;
 	s->numframes = s->AV_FormatContext->streams[s->AV_VideoStreamId]->nb_frames;
-	s->framerate = (float)s->AV_FormatContext->streams[s->AV_VideoStreamId]->r_frame_rate.num / (float)s->AV_FormatContext->streams[s->AV_VideoStreamId]->r_frame_rate.den;
 
-	// fix framerate if it's wrong
+	// determine framerate
+	s->framerate = (float)s->AV_FormatContext->streams[s->AV_VideoStreamId]->avg_frame_rate.num / (float)s->AV_FormatContext->streams[s->AV_VideoStreamId]->avg_frame_rate.den;
 	if (s->framerate <= 1.0f || s->framerate > 100.0f)
-		s->framerate = 15;
+	{
+		s->framerate = (float)s->AV_FormatContext->streams[s->AV_VideoStreamId]->r_frame_rate.num / (float)s->AV_FormatContext->streams[s->AV_VideoStreamId]->r_frame_rate.den;
+		if (s->framerate <= 1.0f || s->framerate > 100.0f)
+			s->framerate = 15;
+	}
 
 	// final checks
 	if (s->framewidth <= 0 || s->frameheight <= 0)
