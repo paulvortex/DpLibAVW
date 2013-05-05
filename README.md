@@ -5,10 +5,11 @@ This little lib is created to provide ability to dynamically link libav to Darkp
 
 Each libavw build is aimed to certain LibAv revision and should be supplied with DLL's from it (so it going to be 5 libs - libavw, libavcodec, libavformat, libavutil, swscale).
 
-Known bugs
+Limitations
 ------
 - Sound stream are not decoded (it should be provided in separate .ogg/.wav file)
 - Playback of videos with sound streams may be bugged, so it will be better if videos will have only one video stream
+- Video file should have constant frame rate
 
 --------------------------------------------------------------------------------
  Version History + Changelog (Reverse Chronological Order)
